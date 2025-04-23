@@ -8,15 +8,13 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import {
-  ALL_MODEL_NAMES,
+  ALL_MODEL_NAMES,  
   ALL_MODELS,
-  LANGCHAIN_USER_ONLY_MODELS,
 } from "@opencanvas/shared/models";
 import {
   Dispatch,
   SetStateAction,
   useCallback,
-  useEffect,
   useState,
 } from "react";
 import { ModelConfigPanel } from "./model-config-pannel";
@@ -34,7 +32,6 @@ import {
 } from "@radix-ui/react-popover";
 import { Check } from "lucide-react";
 import NextImage from "next/image";
-import { useUserContext } from "@/contexts/UserContext";
 
 interface ModelSelectorProps {
   modelName: ALL_MODEL_NAMES;
@@ -118,15 +115,8 @@ export default function ModelSelector({
   setModelName,
   modelConfigs,
 }: ModelSelectorProps) {
-  const { user } = useUserContext();
-  const [isLangChainUser, setIsLangChainUser] = useState(false);
   const [open, setOpen] = useState(false);
   const [openConfigModelId, setOpenConfigModelId] = useState<ALL_MODEL_NAMES>();
-
-  useEffect(() => {
-    if (!user) return;
-    setIsLangChainUser(user?.email?.endsWith("@langchain.dev") || false);
-  }, [user]);
 
   const handleModelChange = useCallback(
     async (newModel: ALL_MODEL_NAMES) => {
@@ -137,13 +127,6 @@ export default function ModelSelector({
   );
 
   const allAllowedModels = ALL_MODELS.filter((model) => {
-    if (
-      !isLangChainUser &&
-      LANGCHAIN_USER_ONLY_MODELS.some((m) => m === model.name)
-    ) {
-      return false;
-    }
-
     if (
       model.name.includes("fireworks/") &&
       process.env.NEXT_PUBLIC_FIREWORKS_ENABLED === "false"

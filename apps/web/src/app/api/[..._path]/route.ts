@@ -70,12 +70,19 @@ async function handleRequest(req: NextRequest, method: string) {
     );
 
     if (res.status >= 400) {
-      console.error(
-        "ERROR IN PROXY",
-        `${LANGGRAPH_API_URL}/${path}${queryString}`,
-        res.status,
-        res.statusText
-      );
+      console.error("ERROR IN PROXY", {
+        url: `${LANGGRAPH_API_URL}/${path}${queryString}`,
+        status: res.status,
+        statusText: res.statusText,
+        headers: Object.fromEntries(res.headers.entries()),
+        options: {
+          ...options,
+          headers: {
+            ...options.headers,
+            "x-api-key": "[REDACTED]",
+          },
+        },
+      });
       return new Response(res.body, {
         status: res.status,
         statusText: res.statusText,

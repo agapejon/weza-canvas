@@ -22,11 +22,7 @@ import {
   CONTEXT_DOCUMENTS_NAMESPACE,
   OC_WEB_SEARCH_RESULTS_MESSAGE_KEY,
 } from "@opencanvas/shared/constants";
-import {
-  TEMPERATURE_EXCLUDED_MODELS,
-  LANGCHAIN_USER_ONLY_MODELS,
-} from "@opencanvas/shared/models";
-import { createClient, Session, User } from "@supabase/supabase-js";
+import { TEMPERATURE_EXCLUDED_MODELS } from "@opencanvas/shared/models";
 
 export const formatReflections = (
   reflections: Reflections,
@@ -173,7 +169,7 @@ export const getModelConfig = (
     azureOpenAIApiInstanceName: string;
     azureOpenAIApiDeploymentName: string;
     azureOpenAIApiVersion: string;
-    azureOpenAIBasePath?: string;
+    azureOpenAIApiBasePath?: string;
   };
   apiKey?: string;
   baseUrl?: string;
@@ -200,7 +196,7 @@ export const getModelConfig = (
           process.env._AZURE_OPENAI_API_DEPLOYMENT_NAME || "",
         azureOpenAIApiVersion:
           process.env._AZURE_OPENAI_API_VERSION || "2024-08-01-preview",
-        azureOpenAIBasePath: process.env._AZURE_OPENAI_API_BASE_PATH,
+        azureOpenAIApiBasePath: process.env._AZURE_OPENAI_API_BASE_PATH,
       },
     };
   }
@@ -307,32 +303,6 @@ export function optionallyGetSystemPromptFromConfig(
   return config.configurable?.systemPrompt as string | undefined;
 }
 
-async function getUserFromConfig(
-  config: LangGraphRunnableConfig
-): Promise<User | undefined> {
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.SUPABASE_SERVICE_ROLE
-  ) {
-    return undefined;
-  }
-
-  const accessToken = (
-    config.configurable?.supabase_session as Session | undefined
-  )?.access_token;
-  if (!accessToken) {
-    return undefined;
-  }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE
-  );
-
-  const authRes = await supabase.auth.getUser(accessToken);
-  return authRes.data.user || undefined;
-}
-
 export function isUsingO1MiniModel(config: LangGraphRunnableConfig) {
   const { modelName } = getModelConfig(config);
   return modelName.includes("o1-mini");
@@ -362,23 +332,6 @@ export async function getModelFromConfig(
     ...extra,
   };
 
-  const isLangChainUserModel = LANGCHAIN_USER_ONLY_MODELS.some(
-    (m) => m === modelName
-  );
-  if (isLangChainUserModel) {
-    const user = await getUserFromConfig(config);
-    if (!user) {
-      throw new Error(
-        "Unauthorized. Can not use LangChain only models without a user."
-      );
-    }
-    if (!user.email?.endsWith("@langchain.dev")) {
-      throw new Error(
-        "Unauthorized. Can not use LangChain only models without a user with a @langchain.dev email."
-      );
-    }
-  }
-
   const includeStandardParams = !TEMPERATURE_EXCLUDED_MODELS.some(
     (m) => m === modelName
   );
@@ -402,7 +355,7 @@ export async function getModelFromConfig(
           azureOpenAIApiDeploymentName:
             azureConfig.azureOpenAIApiDeploymentName,
           azureOpenAIApiVersion: azureConfig.azureOpenAIApiVersion,
-          azureOpenAIBasePath: azureConfig.azureOpenAIBasePath,
+          azureOpenAIApiBasePath: azureConfig.azureOpenAIApiBasePath,
         }
       : {}),
   });
