@@ -91,17 +91,54 @@ async function handleRequest(req: NextRequest, method: string) {
 
     const headers = new Headers({
       ...getCorsHeaders(),
+      // Add streaming-specific headers
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
     });
     // Safely add headers from the original response
     res.headers.forEach((value, key) => {
       try {
-        headers.set(key, value);
+        // Don't override our streaming headers
+        if (!headers.has(key)) {
+          headers.set(key, value);
+        }
       } catch (error) {
         console.warn(`Failed to set header: ${key}`, error);
       }
     });
 
-    return new Response(res.body, {
+    // Create a new ReadableStream that wraps the original response body
+    // This allows us to handle stream errors and ensure proper cleanup
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          const reader = res.body?.getReader();
+          if (!reader) {
+            controller.close();
+            return;
+          }
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              controller.close();
+              break;
+            }
+            controller.enqueue(value);
+          }
+        } catch (error) {
+          console.error("Stream error:", error);
+          controller.error(error);
+        }
+      },
+      cancel() {
+        // Cleanup when the stream is cancelled
+        res.body?.cancel();
+      },
+    });
+
+    return new Response(stream, {
       status: res.status,
       statusText: res.statusText,
       headers,
